@@ -1,0 +1,40 @@
+# 临时文件
+/temp/
+*.wav
+*.mp3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+
+# 缓存
+.cache/
+*.cache
+
+data/
+.agents/
+.video/
+.codegraph/
+.pytest_cache/

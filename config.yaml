@@ -1,0 +1,134 @@
+# FunASR v4.0 配置文件
+# 路径配置仅使用 RUNTIME_* 环境变量覆盖；其他配置项见各段说明
+
+# ========================================
+# 服务器配置
+# ========================================
+server:
+  name: "FunASR Multi-Mode API v1.0"
+  version: "1.0.0"
+  debug: false
+  host: "127.0.0.1"
+  port: 8000
+  workers: 4
+  log_level: "INFO"
+  max_upload_size: "500MB"
+
+# ========================================
+# 本地运行期目录
+# 未显式配置绝对路径时，模型、SQLite、临时音频、识别结果、本地兜底文件都保存在这里
+# ========================================
+runtime:
+  root_dir: "./data"
+  models_dir: "models"
+  sqlite_path: "sqlite/funasr_tasks.db"
+  temp_dir: "temp"
+  offline_result_dir: "results/offline"
+  local_files_dir: "files"
+
+# ========================================
+# 数据库配置
+# ========================================
+database:
+  mysql:
+    host: ""
+    port: 3306
+    username: ""
+    password: ""
+    database: ""
+    pool_size: 20
+    pool_recycle: 3600
+    echo: false
+
+# ========================================
+# 引擎配置
+# ========================================
+engines:
+  # 启用的引擎列表
+  enabled:
+    - offline
+    # - online
+    - spk
+  device: "cpu"
+  disable_model_update: true
+  auto_model_download: true                  # false=仅使用本地已有模型，不联网下载；true=允许首次联网下载
+  models:
+    offline:
+      enabled: onnx
+      # pt:
+      #   asr: "iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
+      #   vad: "iic/speech_fsmn_vad_zh-cn-16k-common-pytorch"
+      #   punc: "iic/speech_ct_punc_zh-cn-16k-common-vocab8404-pytorch"
+      #   spk: "iic/speech_campplus_sv_zh-cn_16k-common"
+      # onnx:
+      #   asr: "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-onnx"
+      #   vad: "iic/speech_fsmn_vad_zh-cn-16k-common-onnx"
+      #   punc: "iic/punc_ct-transformer_cn-en-common-vocab471067-large-onnx"
+      #   spk: "iic/speech_campplus_speaker-diarization_common"
+    online:
+      enabled: pt
+      # pt:
+      #   streaming_asr: "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online"
+      #   vad: "iic/speech_fsmn_vad_zh-cn-16k-common-pytorch"
+      #   final_asr: "iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
+      #   punc: "iic/punc_ct-transformer_zh-cn-common-vad_realtime-vocab272727"
+      # onnx:
+      #   streaming_asr: "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online-onnx"
+      #   vad: "iic/speech_fsmn_vad_zh-cn-16k-common-onnx"
+      #   final_asr: "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-onnx"
+      #   punc: "iic/punc_ct-transformer_zh-cn-common-vad_realtime-vocab272727-onnx"
+    # 共享 SPK runtime：OFFLINE 强制依赖；启用 engines.enabled 中的 spk 时额外开放 standalone API。
+    # 仅支持 PT speaker-diarization pipeline。未显式配置时使用内置默认模型。
+    # spk:
+    #   spk: "iic/speech_campplus_speaker-diarization_common"
+
+
+# ========================================
+# 日志配置
+# ========================================
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file:
+    enabled: true
+    path: "./logs/funasr.log"
+    max_size_mb: 100
+    backup_count: 10
+  console:
+    enabled: true
+
+# ========================================
+# 处理队列配置
+# ========================================
+processing:
+  max_concurrent_tasks: 4
+  cleanup_on_complete: true
+  offline_async:
+    enabled: true
+    allow_immediate: true
+
+# ========================================
+# 存储配置（未配置 S3 时自动保存到本地兜底目录）
+# ========================================
+storage:
+  s3:
+    enabled: false
+    endpoint: ""
+    access_key: ""
+    secret_key: ""
+    bucket: "funasr-audio"
+    region: "us-east-1"
+    prefix: "audio"
+
+# ========================================
+# 消息配置（未配置时自动跳过，不影响识别流程）
+# ========================================
+notifications:
+  enabled: false
+  type: "rocketmq"
+  rocketmq:
+    namesrv: ""
+    topic: ""
+    group: "funasr-producer"
+
+

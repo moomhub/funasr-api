@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OFFLINE ASR Upload Test</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --panel: #fffaf0;
+      --ink: #1f2a2e;
+      --muted: #6f7770;
+      --line: #d8cebc;
+      --accent: #0f766e;
+      --accent-strong: #0b4f4a;
+      --danger: #b42318;
+      --ok: #16734f;
+      --shadow: 0 24px 70px rgba(31, 42, 46, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(15, 118, 110, 0.16), transparent 30%),
+        radial-gradient(circle at 90% 0%, rgba(180, 83, 9, 0.14), transparent 32%),
+        linear-gradient(135deg, #f8f4ec 0%, var(--bg) 48%, #ece6d7 100%);
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 42px 0;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 22px;
+      align-items: stretch;
+      margin-bottom: 22px;
+    }
+
+    .card {
+      border: 1px solid rgba(216, 206, 188, 0.92);
+      border-radius: 28px;
+      background: rgba(255, 250, 240, 0.82);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .intro {
+      padding: 34px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .intro::after {
+      content: "";
+      position: absolute;
+      right: -70px;
+      bottom: -90px;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: repeating-linear-gradient(
+        135deg,
+        rgba(15, 118, 110, 0.15),
+        rgba(15, 118, 110, 0.15) 8px,
+        transparent 8px,
+        transparent 18px
+      );
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      max-width: 760px;
+      font-size: clamp(34px, 6vw, 68px);
+      line-height: 0.96;
+      letter-spacing: -0.055em;
+    }
+
+    .lead {
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.75;
+    }
+
+    .status-card {
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .status {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 13px;
+      border-radius: 999px;
+      background: rgba(31, 42, 46, 0.06);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .status.ready .dot,
+    .status.uploading .dot {
+      background: var(--ok);
+      box-shadow: 0 0 0 7px rgba(22, 115, 79, 0.12);
+    }
+
+    .status.error .dot {
+      background: var(--danger);
+      box-shadow: 0 0 0 7px rgba(180, 35, 24, 0.12);
+    }
+
+    .meter {
+      height: 16px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(31, 42, 46, 0.07);
+    }
+
+    .meter > div {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0f766e, #d97706);
+      transition: width 160ms ease;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      gap: 22px;
+    }
+
+    .controls,
+    .result-panel,
+    .log-panel {
+      padding: 24px;
+    }
+
+    label {
+      display: block;
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px;
+      color: var(--ink);
+      font: inherit;
+      background: rgba(255, 255, 255, 0.68);
+      outline: none;
+    }
+
+    input[type="file"] {
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+      font-family: Consolas, "JetBrains Mono", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: rgba(15, 118, 110, 0.7);
+      box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.13);
+    }
+
+    .field { margin-bottom: 16px; }
+
+    .switch {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 2px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.48);
+      color: var(--accent-strong);
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 16px;
+      padding: 13px 16px;
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--accent);
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(15, 118, 110, 0.24);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .secondary {
+      color: var(--accent-strong);
+      border: 1px solid rgba(15, 118, 110, 0.24);
+      background: rgba(15, 118, 110, 0.09);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.48);
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 22px;
+      letter-spacing: -0.04em;
+    }
+
+    .stack {
+      display: grid;
+      gap: 22px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .tasks {
+      display: grid;
+      gap: 10px;
+      min-height: 140px;
+    }
+
+    .task {
+      padding: 13px 15px;
+      border-left: 4px solid var(--accent);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.58);
+      line-height: 1.65;
+    }
+
+    .task.error {
+      border-left-color: var(--danger);
+    }
+
+    .task small {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .log {
+      height: 320px;
+      overflow: auto;
+      border-radius: 18px;
+      padding: 14px;
+      color: #d7fff7;
+      background: #132023;
+      font: 12px/1.55 Consolas, "JetBrains Mono", monospace;
+      white-space: pre-wrap;
+    }
+
+    .hint {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    @media (max-width: 860px) {
+      .hero,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      main {
+        width: min(100% - 20px, 1180px);
+        padding: 18px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="card intro">
+        <h1>OFFLINE ASR 上传测试台</h1>
+        <p class="lead">
+          顺序上传多个音频文件到 <code>/offline/recognize</code>，每个文件独立生成任务，
+          可携带邮箱、VIP 标记和 JSON 热词参数。
+        </p>
+      </div>
+      <aside class="card status-card">
+        <div>
+          <div id="status" class="status">
+            <span class="dot"></span>
+            <span id="statusText">未上传</span>
+          </div>
+        </div>
+        <div>
+          <label>上传进度</label>
+          <div class="meter"><div id="progress"></div></div>
+          <p class="hint">文件会按选择顺序逐个提交，后端返回 task_id 后进入队列处理。</p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <form id="form" class="card controls">
+        <div class="field">
+          <label for="endpoint">HTTP 地址</label>
+          <input id="endpoint" value="http://127.0.0.1:8000/offline/recognize">
+        </div>
+        <div class="field">
+          <label for="files">音频文件</label>
+          <input id="files" type="file" multiple required>
+        </div>
+        <div class="field">
+          <label for="email">邮箱，可选</label>
+          <input id="email" type="email" placeholder="user@example.com">
+        </div>
+        <div class="field">
+          <label for="hotwords">热词 JSON，可选</label>
+          <textarea id="hotwords">[{"weight":100,"hotword":"篮子"},{"weight":80,"hotword":"直播"}]</textarea>
+        </div>
+        <div class="field">
+          <label for="hotwordId">热词 ID，可选</label>
+          <input id="hotwordId" placeholder="例如：1">
+        </div>
+        <label class="switch">
+          <input id="vip" type="checkbox">
+          VIP 优先队列
+        </label>
+
+        <div class="actions">
+          <button id="submit" type="submit">顺序上传</button>
+          <button id="clearBtn" class="secondary" type="button">清空结果</button>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <label>已选择</label>
+            <strong id="selectedCount">0</strong>
+          </div>
+          <div class="stat">
+            <label>已提交</label>
+            <strong id="uploadedCount">0</strong>
+          </div>
+          <div class="stat">
+            <label>成功</label>
+            <strong id="successCount">0</strong>
+          </div>
+          <div class="stat">
+            <label>失败</label>
+            <strong id="failedCount">0</strong>
+          </div>
+        </div>
+      </form>
+
+      <div class="stack">
+        <section class="card result-panel">
+          <h2>任务返回</h2>
+          <div id="tasks" class="tasks"></div>
+        </section>
+
+        <section class="card log-panel">
+          <h2>原始响应日志</h2>
+          <div id="log" class="log"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      uploaded: 0,
+      success: 0,
+      failed: 0,
+      total: 0,
+    };
+
+    const els = {
+      form: document.getElementById("form"),
+      endpoint: document.getElementById("endpoint"),
+      files: document.getElementById("files"),
+      email: document.getElementById("email"),
+      hotwords: document.getElementById("hotwords"),
+      hotwordId: document.getElementById("hotwordId"),
+      vip: document.getElementById("vip"),
+      submit: document.getElementById("submit"),
+      clearBtn: document.getElementById("clearBtn"),
+      status: document.getElementById("status"),
+      statusText: document.getElementById("statusText"),
+      progress: document.getElementById("progress"),
+      selectedCount: document.getElementById("selectedCount"),
+      uploadedCount: document.getElementById("uploadedCount"),
+      successCount: document.getElementById("successCount"),
+      failedCount: document.getElementById("failedCount"),
+      tasks: document.getElementById("tasks"),
+      log: document.getElementById("log"),
+    };
+
+    function setStatus(text, type = "") {
+      els.status.className = `status ${type}`.trim();
+      els.statusText.textContent = text;
+    }
+
+    function log(message, payload) {
+      const time = new Date().toLocaleTimeString();
+      const body = payload === undefined ? message : `${message} ${JSON.stringify(payload, null, 2)}`;
+      els.log.textContent += `[${time}] ${body}\n`;
+      els.log.scrollTop = els.log.scrollHeight;
+    }
+
+    function updateStats() {
+      els.selectedCount.textContent = String(state.total);
+      els.uploadedCount.textContent = String(state.uploaded);
+      els.successCount.textContent = String(state.success);
+      els.failedCount.textContent = String(state.failed);
+      const percent = state.total ? Math.round((state.uploaded / state.total) * 100) : 0;
+      els.progress.style.width = `${percent}%`;
+    }
+
+    function appendTask(file, payload, ok) {
+      const item = document.createElement("div");
+      item.className = `task ${ok ? "" : "error"}`.trim();
+      const taskId = payload && payload.task_id ? payload.task_id : "-";
+      const sizeMb = file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "-";
+      const status = ok ? "已入队" : "上传失败";
+      item.innerHTML = `<small>${escapeHtml(status)} · ${escapeHtml(sizeMb)}</small>${escapeHtml(file.name)}<br><code>${escapeHtml(taskId)}</code>`;
+      els.tasks.appendChild(item);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function reset() {
+      state.uploaded = 0;
+      state.success = 0;
+      state.failed = 0;
+      state.total = els.files.files.length;
+      els.tasks.innerHTML = "";
+      els.log.textContent = "";
+      setStatus("未上传");
+      updateStats();
+    }
+
+    async function uploadSequentially(event) {
+      event.preventDefault();
+      const files = Array.from(els.files.files);
+      state.total = files.length;
+      state.uploaded = 0;
+      state.success = 0;
+      state.failed = 0;
+      els.tasks.innerHTML = "";
+      els.log.textContent = "";
+      updateStats();
+
+      if (!files.length) {
+        setStatus("未选择文件", "error");
+        return;
+      }
+
+      els.submit.disabled = true;
+      setStatus("上传中", "uploading");
+
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        const data = new FormData();
+        data.append("file", file);
+        if (els.email.value.trim()) data.append("email", els.email.value.trim());
+        if (els.hotwords.value.trim()) data.append("hotwords", els.hotwords.value.trim());
+        if (els.hotwordId.value.trim()) data.append("hotword_id", els.hotwordId.value.trim());
+        data.append("vip", String(els.vip.checked));
+
+        log(`upload ${index + 1}/${files.length}: ${file.name}`);
+        try {
+          const response = await fetch(els.endpoint.value.trim(), { method: "POST", body: data });
+          const payload = await response.json();
+          const ok = response.ok && payload.status === "success";
+          state.uploaded += 1;
+          state.success += ok ? 1 : 0;
+          state.failed += ok ? 0 : 1;
+          appendTask(file, payload, ok);
+          log("response", payload);
+        } catch (error) {
+          state.uploaded += 1;
+          state.failed += 1;
+          appendTask(file, { error: error.message }, false);
+          log(`error: ${error.message}`);
+        }
+        updateStats();
+      }
+
+      setStatus(state.failed ? "完成，有失败" : "全部已提交", state.failed ? "error" : "ready");
+      els.submit.disabled = false;
+    }
+
+    els.files.addEventListener("change", () => {
+      state.total = els.files.files.length;
+      updateStats();
+    });
+    els.form.addEventListener("submit", uploadSequentially);
+    els.clearBtn.addEventListener("click", reset);
+
+    updateStats();
+  </script>
+</body>
+</html>

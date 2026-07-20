@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ONLINE ASR WebSocket Test</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --panel: #fffaf0;
+      --ink: #1f2a2e;
+      --muted: #6f7770;
+      --line: #d8cebc;
+      --accent: #0f766e;
+      --accent-strong: #0b4f4a;
+      --danger: #b42318;
+      --ok: #16734f;
+      --shadow: 0 24px 70px rgba(31, 42, 46, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(15, 118, 110, 0.16), transparent 30%),
+        radial-gradient(circle at 90% 0%, rgba(180, 83, 9, 0.14), transparent 32%),
+        linear-gradient(135deg, #f8f4ec 0%, var(--bg) 48%, #ece6d7 100%);
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 42px 0;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 22px;
+      align-items: stretch;
+      margin-bottom: 22px;
+    }
+
+    .card {
+      border: 1px solid rgba(216, 206, 188, 0.92);
+      border-radius: 28px;
+      background: rgba(255, 250, 240, 0.82);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .intro {
+      padding: 34px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .intro::after {
+      content: "";
+      position: absolute;
+      right: -70px;
+      bottom: -90px;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: repeating-linear-gradient(
+        135deg,
+        rgba(15, 118, 110, 0.15),
+        rgba(15, 118, 110, 0.15) 8px,
+        transparent 8px,
+        transparent 18px
+      );
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      max-width: 760px;
+      font-size: clamp(34px, 6vw, 68px);
+      line-height: 0.96;
+      letter-spacing: -0.055em;
+    }
+
+    .lead {
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.75;
+    }
+
+    .status-card {
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .status {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 13px;
+      border-radius: 999px;
+      background: rgba(31, 42, 46, 0.06);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .status.ready .dot,
+    .status.recording .dot {
+      background: var(--ok);
+      box-shadow: 0 0 0 7px rgba(22, 115, 79, 0.12);
+    }
+
+    .status.error .dot {
+      background: var(--danger);
+      box-shadow: 0 0 0 7px rgba(180, 35, 24, 0.12);
+    }
+
+    .meter {
+      height: 16px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(31, 42, 46, 0.07);
+    }
+
+    .meter > div {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0f766e, #d97706);
+      transition: width 90ms linear;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 370px 1fr;
+      gap: 22px;
+    }
+
+    .controls,
+    .result-panel,
+    .log-panel {
+      padding: 24px;
+    }
+
+    label {
+      display: block;
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px;
+      color: var(--ink);
+      font: inherit;
+      background: rgba(255, 255, 255, 0.68);
+      outline: none;
+    }
+
+    textarea {
+      min-height: 74px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: rgba(15, 118, 110, 0.7);
+      box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.13);
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 16px;
+      padding: 13px 16px;
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--accent);
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(15, 118, 110, 0.24);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .secondary {
+      color: var(--accent-strong);
+      border: 1px solid rgba(15, 118, 110, 0.24);
+      background: rgba(15, 118, 110, 0.09);
+    }
+
+    .danger {
+      background: var(--danger);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.48);
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 22px;
+      letter-spacing: -0.04em;
+    }
+
+    .stack {
+      display: grid;
+      gap: 22px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .partial {
+      min-height: 58px;
+      margin-bottom: 16px;
+      padding: 15px;
+      border-radius: 18px;
+      color: var(--accent-strong);
+      background: rgba(15, 118, 110, 0.1);
+      line-height: 1.7;
+    }
+
+    .partial .stable {
+      color: var(--ink);
+    }
+
+    .partial .live {
+      color: var(--accent-strong);
+      font-weight: 800;
+      text-decoration: underline;
+      text-decoration-color: rgba(15, 118, 110, 0.28);
+      text-underline-offset: 4px;
+    }
+
+    .partial .current {
+      display: block;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+      text-decoration: none;
+    }
+
+    .finals {
+      display: grid;
+      gap: 10px;
+      min-height: 100px;
+    }
+
+    .sentence {
+      padding: 13px 15px;
+      border-left: 4px solid var(--accent);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.58);
+      line-height: 1.7;
+    }
+
+    .sentence small {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .log {
+      height: 280px;
+      overflow: auto;
+      border-radius: 18px;
+      padding: 14px;
+      color: #d7fff7;
+      background: #132023;
+      font: 12px/1.55 Consolas, "JetBrains Mono", monospace;
+      white-space: pre-wrap;
+    }
+
+    .hint {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    @media (max-width: 860px) {
+      .hero,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      main {
+        width: min(100% - 20px, 1180px);
+        padding: 18px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="card intro">
+        <h1>ONLINE ASR 实时测试台</h1>
+        <p class="lead">
+          用浏览器麦克风采集音频，转换为项目 online 协议要求的 16kHz mono int16 PCM，
+          通过 WebSocket 发送到 <code>/online/stream</code>，并实时展示 2pass-online / 2pass-offline 返回。
+        </p>
+      </div>
+      <aside class="card status-card">
+        <div>
+          <div id="status" class="status">
+            <span class="dot"></span>
+            <span id="statusText">未连接</span>
+          </div>
+        </div>
+        <div>
+          <label>麦克风电平</label>
+          <div class="meter"><div id="level"></div></div>
+          <p class="hint">如果没有结果，先确认后端已经启动，并且 online 模式已启用。</p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid">
+      <aside class="card controls">
+        <div class="field">
+          <label for="endpoint">WebSocket 地址</label>
+          <input id="endpoint" value="ws://127.0.0.1:8000/online/stream?sample_rate=16000">
+        </div>
+        <div class="field">
+          <label for="hotwords">热词，可选，格式同 offline</label>
+          <input id="hotwords" placeholder='例如：[{"weight":80,"hotword":"保险"}]'>
+        </div>
+        <div class="field">
+          <label for="hotwordId">热词 ID，可选</label>
+          <input id="hotwordId" placeholder="例如：1">
+        </div>
+        <div class="field">
+          <label for="notes">测试备注</label>
+          <textarea id="notes" placeholder="这里可以记录你本次验证的模型、配置或问题现象。"></textarea>
+        </div>
+
+        <div class="actions">
+          <button id="startBtn">开始录音</button>
+          <button id="stopBtn" class="danger" disabled>停止并收尾</button>
+          <button id="clearBtn" class="secondary" type="button">清空结果</button>
+          <button id="pingBtn" class="secondary" type="button">仅连接测试</button>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <label>音频分片</label>
+            <strong id="chunks">0</strong>
+          </div>
+          <div class="stat">
+            <label>发送字节</label>
+            <strong id="bytes">0</strong>
+          </div>
+          <div class="stat">
+            <label>输入采样率</label>
+            <strong id="inputRate">-</strong>
+          </div>
+          <div class="stat">
+            <label>目标采样率</label>
+            <strong>16000</strong>
+          </div>
+        </div>
+      </aside>
+
+      <div class="stack">
+        <section class="card result-panel">
+          <h2>识别结果</h2>
+          <label>实时 partial（累计追加）</label>
+          <div id="partial" class="partial">等待开始...</div>
+          <label>最终 sentences</label>
+          <div id="finals" class="finals"></div>
+        </section>
+
+        <section class="card log-panel">
+          <h2>原始 WebSocket 事件</h2>
+          <div id="log" class="log"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const TARGET_SAMPLE_RATE = 16000;
+    const PCM_CHUNK_SAMPLES = 1600;
+
+    const state = {
+      ws: null,
+      stream: null,
+      audioContext: null,
+      source: null,
+      processor: null,
+      recording: false,
+      sentChunks: 0,
+      sentBytes: 0,
+      resampleTail: new Float32Array(0),
+      committedTextParts: [],
+      livePartial: "",
+      partialHistoryText: "",
+    };
+
+    const els = {
+      endpoint: document.getElementById("endpoint"),
+      hotwords: document.getElementById("hotwords"),
+      hotwordId: document.getElementById("hotwordId"),
+      status: document.getElementById("status"),
+      statusText: document.getElementById("statusText"),
+      level: document.getElementById("level"),
+      startBtn: document.getElementById("startBtn"),
+      stopBtn: document.getElementById("stopBtn"),
+      clearBtn: document.getElementById("clearBtn"),
+      pingBtn: document.getElementById("pingBtn"),
+      chunks: document.getElementById("chunks"),
+      bytes: document.getElementById("bytes"),
+      inputRate: document.getElementById("inputRate"),
+      partial: document.getElementById("partial"),
+      finals: document.getElementById("finals"),
+      log: document.getElementById("log"),
+    };
+
+    function setStatus(text, type = "") {
+      els.status.className = `status ${type}`.trim();
+      els.statusText.textContent = text;
+    }
+
+    function log(message, payload) {
+      const time = new Date().toLocaleTimeString();
+      const body = payload === undefined ? message : `${message} ${JSON.stringify(payload, null, 2)}`;
+      els.log.textContent += `[${time}] ${body}\n`;
+      els.log.scrollTop = els.log.scrollHeight;
+    }
+
+    function updateStats() {
+      els.chunks.textContent = String(state.sentChunks);
+      els.bytes.textContent = String(state.sentBytes);
+    }
+
+    function appendFinalSentence(sentence) {
+      const item = document.createElement("div");
+      item.className = "sentence";
+      const start = sentence.start ?? sentence.start_ms ?? "-";
+      const end = sentence.end ?? sentence.end_ms ?? "-";
+      const tokens = Array.isArray(sentence.tokens) ? sentence.tokens : [];
+      const timestamp = Array.isArray(sentence.timestamp) ? sentence.timestamp : [];
+      const preview = tokens.length
+        ? tokens.slice(0, 8).map((token) => `${token.text}:${token.start}-${token.end}`).join(" | ")
+        : timestamp.slice(0, 8).map((token) => `${token[0] || ""}:${token[1]}-${token[2]}`).join(" | ");
+      const meta = preview ? `<small>tokens=${tokens.length || timestamp.length} · ${escapeHtml(preview)}</small>` : "";
+      item.innerHTML = `<small>${start}ms - ${end}ms</small>${escapeHtml(sentence.text || "")}${meta}`;
+      els.finals.appendChild(item);
+    }
+
+    function renderRealtimeText() {
+      const historyText = state.partialHistoryText || "";
+      const liveText = state.livePartial || "";
+      if (!historyText && !liveText) {
+        els.partial.textContent = "等待识别...";
+        return;
+      }
+      const showCurrent = liveText && !historyText.endsWith(liveText);
+      els.partial.innerHTML = [
+        historyText ? `<span class="live">${escapeHtml(historyText)}</span>` : "",
+        showCurrent ? `<span class="current">当前窗口：${escapeHtml(liveText)}</span>` : "",
+      ].join("");
+    }
+
+    function mergeRealtimeText(previous, current) {
+      const prev = normalizeRealtimeText(previous);
+      const next = normalizeRealtimeText(current);
+      if (!prev) {
+        return next;
+      }
+      if (!next) {
+        return prev;
+      }
+      if (next.startsWith(prev)) {
+        return next;
+      }
+      if (prev.endsWith(next)) {
+        return prev;
+      }
+
+      const maxOverlap = Math.min(prev.length, next.length);
+      for (let size = maxOverlap; size > 0; size -= 1) {
+        if (prev.endsWith(next.slice(0, size))) {
+          return `${prev}${next.slice(size)}`;
+        }
+      }
+
+      // If the backend sends a short unrelated delta, keep appending so the
+      // realtime area behaves like a transcript instead of a latest-chunk view.
+      return `${prev}${next}`;
+    }
+
+    function normalizeRealtimeText(value) {
+      return String(value || "").replace(/\s+/g, "").trim();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function connectSocket() {
+      return new Promise((resolve, reject) => {
+        if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+          resolve(state.ws);
+          return;
+        }
+
+        const ws = new WebSocket(buildEndpointUrl());
+        state.ws = ws;
+        setStatus("连接中...");
+
+        ws.onopen = () => {
+          setStatus("WebSocket 已连接", "ready");
+          log("socket open");
+          resolve(ws);
+        };
+
+        ws.onerror = () => {
+          setStatus("WebSocket 连接错误", "error");
+          reject(new Error("WebSocket 连接失败"));
+        };
+
+        ws.onclose = (event) => {
+          setStatus(`连接关闭 code=${event.code}`);
+          log("socket close", { code: event.code, reason: event.reason });
+          state.ws = null;
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            handleServerEvent(payload);
+            log("recv", payload);
+          } catch (error) {
+            log(`recv raw: ${event.data}`);
+          }
+        };
+      });
+    }
+
+    function handleServerEvent(payload) {
+      if (payload.event === "error") {
+        setStatus(payload.error || "服务端错误", "error");
+        return;
+      }
+
+      if (payload.event === "ready") {
+        setStatus("服务端 ready", "ready");
+        return;
+      }
+
+      if (payload.event === "started") {
+        setStatus("录音中", "recording");
+        state.livePartial = "";
+        state.partialHistoryText = "";
+        renderRealtimeText();
+        return;
+      }
+
+      if (payload.event === "stopped") {
+        setStatus("已停止", "ready");
+        return;
+      }
+
+      if (payload.mode === "2pass-online") {
+        state.livePartial = normalizeRealtimeText(payload.partial || payload.text || "");
+        state.partialHistoryText = mergeRealtimeText(state.partialHistoryText, state.livePartial);
+        renderRealtimeText();
+        return;
+      }
+
+      if (payload.mode === "2pass-offline") {
+        const sentences = payload.sentences || [];
+        if (sentences.length) {
+          state.committedTextParts.push(...sentences.map((sentence) => sentence.text || "").filter(Boolean));
+        } else if (payload.text) {
+          state.committedTextParts.push(payload.text);
+        }
+        state.livePartial = "";
+        state.partialHistoryText = "";
+        renderRealtimeText();
+        for (const sentence of sentences) {
+          appendFinalSentence(sentence);
+        }
+      }
+    }
+
+    function buildEndpointUrl() {
+      const url = new URL(els.endpoint.value.trim());
+      const hotwords = els.hotwords.value.trim();
+      const hotwordId = els.hotwordId.value.trim();
+      if (hotwords) {
+        url.searchParams.set("hotwords", hotwords);
+      } else {
+        url.searchParams.delete("hotwords");
+      }
+      if (hotwordId) {
+        url.searchParams.set("hotword_id", hotwordId);
+      } else {
+        url.searchParams.delete("hotword_id");
+      }
+      return url.toString();
+    }
+
+    async function startRecording() {
+      try {
+        clearResults(false);
+        const ws = await connectSocket();
+        ws.send("START");
+
+        state.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        state.audioContext = new AudioContextCtor();
+        els.inputRate.textContent = String(state.audioContext.sampleRate);
+
+        state.source = state.audioContext.createMediaStreamSource(state.stream);
+        state.processor = state.audioContext.createScriptProcessor(4096, 1, 1);
+        state.resampleTail = new Float32Array(0);
+
+        state.processor.onaudioprocess = (event) => {
+          if (!state.recording || !state.ws || state.ws.readyState !== WebSocket.OPEN) {
+            return;
+          }
+
+          const input = event.inputBuffer.getChannelData(0);
+          updateLevel(input);
+          const pcm = downsampleToInt16(input, state.audioContext.sampleRate, TARGET_SAMPLE_RATE);
+          sendPcmChunks(pcm);
+        };
+
+        state.source.connect(state.processor);
+        state.processor.connect(state.audioContext.destination);
+        state.recording = true;
+        els.startBtn.disabled = true;
+        els.stopBtn.disabled = false;
+        setStatus("录音中", "recording");
+        log("recording start");
+      } catch (error) {
+        setStatus(error.message, "error");
+        log(`start failed: ${error.stack || error.message}`);
+        await stopRecording(false);
+      }
+    }
+
+    async function stopRecording(sendStop = true) {
+      state.recording = false;
+      els.startBtn.disabled = false;
+      els.stopBtn.disabled = true;
+      els.level.style.width = "0%";
+
+      if (state.processor) {
+        state.processor.disconnect();
+        state.processor.onaudioprocess = null;
+        state.processor = null;
+      }
+      if (state.source) {
+        state.source.disconnect();
+        state.source = null;
+      }
+      if (state.stream) {
+        for (const track of state.stream.getTracks()) {
+          track.stop();
+        }
+        state.stream = null;
+      }
+      if (state.audioContext) {
+        await state.audioContext.close();
+        state.audioContext = null;
+      }
+
+      if (sendStop && state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send("STOP");
+        log("send STOP");
+      }
+
+      setStatus("已停止", "ready");
+    }
+
+    function downsampleToInt16(input, inputSampleRate, outputSampleRate) {
+      if (inputSampleRate === outputSampleRate) {
+        return floatToInt16(input);
+      }
+
+      const ratio = inputSampleRate / outputSampleRate;
+      const outputLength = Math.floor(input.length / ratio);
+      const output = new Int16Array(outputLength);
+
+      for (let i = 0; i < outputLength; i += 1) {
+        const start = Math.floor(i * ratio);
+        const end = Math.min(Math.floor((i + 1) * ratio), input.length);
+        let sum = 0;
+        let count = 0;
+        for (let j = start; j < end; j += 1) {
+          sum += input[j];
+          count += 1;
+        }
+        output[i] = clampFloatToInt16(count > 0 ? sum / count : 0);
+      }
+
+      return output;
+    }
+
+    function floatToInt16(input) {
+      const output = new Int16Array(input.length);
+      for (let i = 0; i < input.length; i += 1) {
+        output[i] = clampFloatToInt16(input[i]);
+      }
+      return output;
+    }
+
+    function clampFloatToInt16(sample) {
+      const clamped = Math.max(-1, Math.min(1, sample));
+      return clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+    }
+
+    function sendPcmChunks(pcm) {
+      if (!pcm.length) {
+        return;
+      }
+
+      const merged = new Int16Array(state.resampleTail.length + pcm.length);
+      merged.set(state.resampleTail, 0);
+      merged.set(pcm, state.resampleTail.length);
+
+      let offset = 0;
+      while (offset + PCM_CHUNK_SAMPLES <= merged.length) {
+        const chunk = merged.slice(offset, offset + PCM_CHUNK_SAMPLES);
+        state.ws.send(chunk.buffer);
+        state.sentChunks += 1;
+        state.sentBytes += chunk.byteLength;
+        offset += PCM_CHUNK_SAMPLES;
+      }
+
+      state.resampleTail = merged.slice(offset);
+      updateStats();
+    }
+
+    function updateLevel(input) {
+      let sum = 0;
+      for (let i = 0; i < input.length; i += 1) {
+        sum += input[i] * input[i];
+      }
+      const rms = Math.sqrt(sum / Math.max(input.length, 1));
+      const percent = Math.min(100, Math.round(rms * 420));
+      els.level.style.width = `${percent}%`;
+    }
+
+    function clearResults(resetCounters = true) {
+      state.committedTextParts = [];
+      state.livePartial = "";
+      state.partialHistoryText = "";
+      renderRealtimeText();
+      els.finals.innerHTML = "";
+      els.log.textContent = "";
+      if (resetCounters) {
+        state.sentChunks = 0;
+        state.sentBytes = 0;
+        updateStats();
+      }
+    }
+
+    async function pingOnly() {
+      try {
+        await connectSocket();
+      } catch (error) {
+        log(`connect failed: ${error.message}`);
+      }
+    }
+
+    els.startBtn.addEventListener("click", startRecording);
+    els.stopBtn.addEventListener("click", () => stopRecording(true));
+    els.clearBtn.addEventListener("click", () => clearResults(true));
+    els.pingBtn.addEventListener("click", pingOnly);
+
+    window.addEventListener("beforeunload", () => {
+      if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.close();
+      }
+    });
+  </script>
+</body>
+</html>

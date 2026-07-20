@@ -1,0 +1,26 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "command": {
+    "run": {
+      "template": "从分析项目结构和理解代码开始，然后用 uv run python 执行 $ARGUMENTS",
+      "description": "Run Python script with uv",
+      "subtask": true
+    },
+    "add": {
+      "template": "执行 uv add $ARGUMENTS 来添加 Python 依赖包",
+      "description": "Add Python dependency with uv",
+      "subtask": true
+    },
+    "remove": {
+      "template": "执行 uv remove $ARGUMENTS 来移除 Python 依赖包",
+      "description": "Remove Python dependency with uv",
+      "subtask": true
+    },
+    "sync": {
+      "template": "执行 uv sync 来同步项目依赖环境",
+      "description": "Sync project dependencies with uv",
+      "subtask": true
+    }
+  }
+}
