@@ -1,6 +1,7 @@
 """Compatibility facade for split infrastructure adapters."""
 
 from src.core.infrastructure_adapters.audio_backup import (
+    LocalAudioBackupStore,
     NoopAudioBackupStore,
     S3AudioBackupStore,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "DatabaseHotwordProvider",
     "EmptyHotwordProvider",
     "LocalTempFileStore",
+    "LocalAudioBackupStore",
     "MemoryTaskRepository",
     "NoopAudioBackupStore",
     "S3AudioBackupStore",

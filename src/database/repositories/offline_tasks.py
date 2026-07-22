@@ -22,7 +22,8 @@ class SqlTaskRepository:
         if not task:
             return None
         return TaskRecord(
-            id=task.id, filename=task.filename, file_size=task.file_size,
+            id=task.id, filename=task.filename,
+            source_task_id=task.source_task_id, file_size=task.file_size,
             status=task.status, full_text=task.full_text, segments=task.segments,
             processing_time=task.processing_time, error_message=task.error_message,
             created_at=task.created_at, started_at=task.started_at,
@@ -39,8 +40,8 @@ class SqlTaskRepository:
             result = operation(*args, session=session, **kwargs)
             return flush_and_detach(session, result)
 
-    def create_task(self, task_id: str, filename: str, file_size: int, email: str = None, hotwords: str = None, hotword_id: int = None, vip: bool = False) -> TaskRecord:
-        return self._to_record(self._call(OfflineTaskDAO.create, filename=filename, task_id=task_id, file_size=file_size, email=email, hotwords=hotwords, hotword_id=hotword_id, vip=vip))
+    def create_task(self, task_id: str, filename: str, file_size: int, email: str = None, hotwords: str = None, hotword_id: int = None, vip: bool = False, source_task_id: str = None, s3_key: str = None, file_hash: str = None) -> TaskRecord:
+        return self._to_record(self._call(OfflineTaskDAO.create, filename=filename, task_id=task_id, file_size=file_size, email=email, hotwords=hotwords, hotword_id=hotword_id, vip=vip, source_task_id=source_task_id, s3_key=s3_key, file_hash=file_hash))
 
     def get_task(self, task_id: str) -> Optional[TaskRecord]:
         return self._to_record(self._call(OfflineTaskDAO.get_by_id, task_id))
@@ -66,6 +67,10 @@ class SqlTaskRepository:
     def close(self) -> None:
         self.db.close()
 
+    def check_connection(self) -> None:
+        self.db.init_db()
+        self.db.check_connection()
+
     def status(self) -> Dict[str, Any]:
         return {
             "name": self.name,
@@ -73,6 +78,7 @@ class SqlTaskRepository:
             "enabled": True,
             "available": self.available,
             "last_error": self.last_error,
+            "backend": self.db.engine.url.get_backend_name(),
         }
 
 

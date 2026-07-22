@@ -10,7 +10,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import declarative_base
 from datetime import datetime, timezone
-import uuid
+from src.core.ids import new_task_id
 
 Base = declarative_base()
 
@@ -58,10 +58,11 @@ class OfflineTask(Base):
     __tablename__ = 'offline_tasks'
     
     # 主键
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String(36), primary_key=True, default=new_task_id)
     
     # 文件信息
     filename = Column(String(255), nullable=False)
+    source_task_id = Column(String(36))
     file_size = Column(Integer)
     s3_key = Column(String(512))
     file_hash = Column(String(128))
@@ -102,6 +103,7 @@ class OfflineTask(Base):
     __table_args__ = (
         Index('idx_status', 'status'),
         Index('idx_created_at', 'created_at'),
+        Index('idx_offline_tasks_source_task_id', 'source_task_id'),
     )
     
     def to_dict(self):
@@ -109,6 +111,7 @@ class OfflineTask(Base):
         return {
             'id': self.id,
             'filename': self.filename,
+            'source_task_id': self.source_task_id,
             'file_size': self.file_size,
             's3_key': self.s3_key,
             'file_hash': self.file_hash,
@@ -134,8 +137,9 @@ class SpkTask(Base):
     """独立 SPK 任务表。"""
     __tablename__ = 'spk_tasks'
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String(36), primary_key=True, default=new_task_id)
     filename = Column(String(255), nullable=False)
+    source_task_id = Column(String(36))
     file_size = Column(Integer)
     email = Column(String(255))
     vip = Column(Boolean, default=False)
@@ -168,12 +172,14 @@ class SpkTask(Base):
     __table_args__ = (
         Index('idx_spk_status', 'status'),
         Index('idx_spk_created_at', 'created_at'),
+        Index('idx_spk_tasks_source_task_id', 'source_task_id'),
     )
 
     def to_dict(self):
         return {
             'id': self.id,
             'filename': self.filename,
+            'source_task_id': self.source_task_id,
             'file_size': self.file_size,
             'email': self.email,
             'vip': self.vip,
@@ -196,7 +202,7 @@ class SpkTask(Base):
 
 
 class S3File(Base):
-    """S3/本地兜底文件索引表，用于按 hash 去重。"""
+    """S3/本地归档文件索引表，用于按 hash 去重。"""
     __tablename__ = 's3_files'
 
     id = Column(Integer, primary_key=True)

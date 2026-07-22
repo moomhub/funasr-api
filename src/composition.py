@@ -101,6 +101,7 @@ def compose_app_services(
         task_repository=container.task_repository,
         speaker_task_repository=container.speaker_task_repository,
         scheduler=task_queue,
+        audio_backup_store=container.audio_backup_store,
     )
     return AppServices(
         config=config,

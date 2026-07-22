@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.core.debug_logging import log_exception
+from src.core.config.coercion import as_bool
 
 logger = logging.getLogger(__name__)
 
@@ -45,16 +46,35 @@ class RocketMQCompletionPublisher:
         notifications = self.config.get("notifications", None)
         notifications = notifications or {}
         rocket = notifications.get("rocketmq", {}) or {}
-        self.enabled = bool(notifications.get("enabled", False)) and notifications.get("type") == "rocketmq"
+        self.notification_type = str(notifications.get("type", "rocketmq") or "rocketmq").strip().lower()
+        self.enabled = as_bool(notifications.get("enabled", False), False) and self.notification_type == "rocketmq"
         self.namesrv = self.config.get_env("notifications.rocketmq.namesrv", "ROCKETMQ_NAMESRV", rocket.get("namesrv"))
         self.topic = self.config.get_env("notifications.rocketmq.topic", "ROCKETMQ_TOPIC", rocket.get("topic"))
         self.group = self.config.get_env("notifications.rocketmq.group", "ROCKETMQ_GROUP", rocket.get("group", "funasr-producer"))
 
     async def publish_completion(self, *, task_key: str, email: str, s3_key: str, source: str) -> bool:
-        if not email:
+        if not self.enabled:
+            logger.info(
+                "Notification skipped: type=%s task_id=%s reason=configuration_disabled",
+                self.notification_type,
+                task_key,
+            )
             return False
-        if not self.enabled or not self.namesrv or not self.topic:
-            logger.info("RocketMQ 未配置，跳过完成消息: %s", task_key)
+        if not email:
+            logger.info(
+                "Notification skipped: type=%s task_id=%s reason=recipient_missing",
+                self.notification_type,
+                task_key,
+            )
+            return False
+        issue = self.configuration_issue()
+        if issue:
+            logger.warning(
+                "Notification skipped: type=%s task_id=%s reason=%s",
+                self.notification_type,
+                task_key,
+                issue,
+            )
             return False
 
         payload = {
@@ -65,7 +85,11 @@ class RocketMQCompletionPublisher:
         }
         try:
             await asyncio.to_thread(self._publish_sync, payload)
-            logger.info("✅ RocketMQ 完成消息已发送: %s", task_key)
+            logger.info(
+                "Notification sent: type=rocketmq task_id=%s source=%s",
+                task_key,
+                source,
+            )
             return True
         except Exception as exc:
             log_exception(
@@ -76,6 +100,28 @@ class RocketMQCompletionPublisher:
                 context={"task_id": task_key},
             )
             return False
+
+    def configuration_issue(self) -> Optional[str]:
+        if not self.enabled:
+            return None
+        if not self.namesrv or not self.topic or not self.group:
+            return "configuration_incomplete"
+        return None
+
+    def check_connection(self) -> None:
+        if not self.enabled:
+            return
+        issue = self.configuration_issue()
+        if issue:
+            raise RuntimeError(issue)
+        from rocketmq.client import Producer
+
+        producer = Producer(self.group)
+        producer.set_namesrv_addr(self.namesrv)
+        try:
+            producer.start()
+        finally:
+            producer.shutdown()
 
     def _publish_sync(self, payload: dict) -> None:
         from rocketmq.client import Message, Producer
@@ -158,6 +204,11 @@ class FilePostProcessor:
                 local_path=existing.local_path,
                 upload_status="reused",
                 is_reused=True,
+            )
+            logger.info(
+                "File archive reused: backend=%s task_id=%s",
+                stored.storage_backend,
+                task_key,
             )
         else:
             stored = await self._store_new_file(path, task_key, filename, source, file_sha256, file_size)

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
 from src.core.debug_logging import json_for_log
+from src.core.ids import new_task_id
 from src.database.models import SpkTask
 
 logger = logging.getLogger(__name__)
@@ -25,17 +25,23 @@ class SpkTaskDAO:
         file_size: int = None,
         email: str = None,
         vip: bool = False,
+        source_task_id: str = None,
+        s3_key: str = None,
+        file_hash: str = None,
         *,
         session: Session,
     ) -> SpkTask:
         if task_id is None:
-            task_id = str(uuid.uuid4())
+            task_id = new_task_id()
         task = SpkTask(
             id=task_id,
             filename=filename,
+            source_task_id=source_task_id,
             file_size=file_size,
             email=email,
             vip=bool(vip),
+            s3_key=s3_key,
+            file_hash=file_hash,
             status="pending",
         )
         session.add(task)
@@ -47,6 +53,7 @@ class SpkTaskDAO:
             json_for_log({
                 "task_id": task_id,
                 "filename": filename,
+                "source_task_id": source_task_id,
                 "file_size": file_size,
                 "email": email,
                 "vip": bool(vip),

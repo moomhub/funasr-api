@@ -11,6 +11,7 @@ from src.bootstrap import build_app_services
 from src.core.config.loader import ConfigLoader
 from src.core.debug_logging import json_for_log, log_exception
 from src.core.logging_config import configure_logging
+from src.application.startup_diagnostics import run_startup_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +31,17 @@ class ApplicationLifecycle:
         self.services_factory = services_factory
 
     async def start(self, app: FastAPI) -> Any:
-        logger.info("Application startup started")
         try:
             config = self.config_factory(self.config_path)
-            configure_logging(config.get("logging.level", "INFO"))
+            configure_logging(config)
+            logger.info("Application startup started")
             services = self.services_factory(config_loader=config)
             app.state.services = services
 
+            app.state.startup_diagnostics = await run_startup_diagnostics(
+                services,
+                config=config,
+            )
             self._log_composition(services)
             preload_summary = services.runtime_application.preload_enabled_models()
             self._log_preload(preload_summary)

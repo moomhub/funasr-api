@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
     config = ConfigLoader("config.yaml")
     log_level = str(config.get("logging.level", "INFO")).lower()
-    configure_logging(log_level)
+    configure_logging(config)
     server_config = config.get("server", {})
     host = server_config.get("host", "0.0.0.0")
     port = server_config.get("port", 8000)
@@ -115,4 +115,5 @@ if __name__ == "__main__":
         workers=1,
         reload=False,
         log_level=log_level,
+        log_config=None,
     )

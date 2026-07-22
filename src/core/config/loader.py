@@ -9,7 +9,13 @@ from typing import Any, Dict
 from .builders import TypedConfigBuilder
 from .coercion import as_bool, as_list
 from .paths import RuntimePathResolver
-from .schema import DatabaseConfig, EnginesConfig, HotwordConfig, ProcessingConfig
+from .schema import (
+    DatabaseConfig,
+    EnginesConfig,
+    HotwordConfig,
+    ProcessingConfig,
+    StorageConfig,
+)
 from .source import env_or_value, load_yaml
 from .validation import (
     REMOVED_CONFIG_KEYS,
@@ -59,6 +65,9 @@ class ConfigLoader:
 
     def get_database_config(self) -> DatabaseConfig:
         return self._typed_builder().database()
+
+    def get_storage_config(self) -> StorageConfig:
+        return self._typed_builder().storage()
 
     def get_engines_config(self) -> EnginesConfig:
         return self._typed_builder().engines()

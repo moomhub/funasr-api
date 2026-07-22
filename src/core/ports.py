@@ -31,6 +31,7 @@ class TaskRecord:
     hotwords: Optional[str] = None
     hotword_id: Optional[int] = None
     is_deleted: bool = False
+    source_task_id: Optional[str] = None
 
 
 class TaskRepository(Protocol):
@@ -38,7 +39,7 @@ class TaskRepository(Protocol):
     available: bool
     last_error: Optional[str]
 
-    def create_task(self, task_id: str, filename: str, file_size: int, email: str = None, hotwords: str = None, hotword_id: int = None, vip: bool = False) -> TaskRecord:
+    def create_task(self, task_id: str, filename: str, file_size: int, email: str = None, hotwords: str = None, hotword_id: int = None, vip: bool = False, source_task_id: str = None, s3_key: str = None, file_hash: str = None) -> TaskRecord:
         ...
 
     def get_task(self, task_id: str) -> Optional[TaskRecord]:
@@ -66,6 +67,9 @@ class TaskRepository(Protocol):
         ...
 
     def status(self) -> Dict[str, Any]:
+        ...
+
+    def check_connection(self) -> None:
         ...
 
 
@@ -137,6 +141,15 @@ class AudioBackupStore(Protocol):
     bucket: Optional[str]
 
     async def backup_original(self, local_path: str, task_id: str, filename: str) -> Optional[str]:
+        ...
+
+    async def restore_original(self, archive_key: str, local_path: str, task_id: str) -> str:
+        ...
+
+    def check_connection(self) -> None:
+        ...
+
+    def get_local_path(self, key: str) -> Optional[str]:
         ...
 
     def status(self) -> Dict[str, Any]:

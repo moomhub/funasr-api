@@ -105,6 +105,7 @@ class TextResultFileHook(BaseOfflineTaskResultHook):
 
 class AudioBackupHook(BaseOfflineTaskResultHook):
     name = "audio_backup"
+    critical = True
 
     def __init__(self, task_repository: Any, postprocessor: Any):
         self.task_repository = task_repository

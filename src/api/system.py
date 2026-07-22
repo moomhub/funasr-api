@@ -29,6 +29,7 @@ async def get_task_result(task_id: str, services: AppServices = Depends(get_app_
 
         result = {
             "task_id": task.id,
+            "source_task_id": task.source_task_id,
             "filename": task.filename,
             "status": task.status,
             "created_at": task.created_at.isoformat() if task.created_at else None,

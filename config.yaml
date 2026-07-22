@@ -10,13 +10,11 @@ server:
   debug: false
   host: "127.0.0.1"
   port: 8000
-  workers: 4
-  log_level: "INFO"
   max_upload_size: "500MB"
 
 # ========================================
 # 本地运行期目录
-# 未显式配置绝对路径时，模型、SQLite、临时音频、识别结果、本地兜底文件都保存在这里
+# 未显式配置绝对路径时，模型、SQLite、临时音频、识别结果、本地归档文件都保存在这里
 # ========================================
 runtime:
   root_dir: "./data"
@@ -30,6 +28,12 @@ runtime:
 # 数据库配置
 # ========================================
 database:
+  # sqlite/mysql；未配置时默认 sqlite。不会在连接失败时切换数据库。
+  type: "sqlite"
+  sqlite:
+    pool_size: 5
+    pool_recycle: 3600
+    echo: false
   mysql:
     host: ""
     port: 3306
@@ -108,17 +112,25 @@ processing:
     allow_immediate: true
 
 # ========================================
-# 存储配置（未配置 S3 时自动保存到本地兜底目录）
+# 存储配置（local/s3 二选一；未配置时默认 local，不做故障回退）
 # ========================================
 storage:
+  type: "local"
+  local:
+    prefix: "audio"
   s3:
-    enabled: false
     endpoint: ""
     access_key: ""
     secret_key: ""
-    bucket: "funasr-audio"
-    region: "us-east-1"
+    bucket: ""
+    region: ""
     prefix: "audio"
+
+# ========================================
+# 启动依赖检查
+# ========================================
+startup:
+  dependency_timeout_seconds: 5
 
 # ========================================
 # 消息配置（未配置时自动跳过，不影响识别流程）

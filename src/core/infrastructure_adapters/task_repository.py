@@ -28,15 +28,21 @@ class MemoryTaskRepository:
         hotwords: str = None,
         hotword_id: int = None,
         vip: bool = False,
+        source_task_id: str = None,
+        s3_key: str = None,
+        file_hash: str = None,
     ) -> TaskRecord:
         task = TaskRecord(
             id=task_id,
             filename=filename,
+            source_task_id=source_task_id,
             file_size=file_size,
             email=email,
             hotwords=hotwords,
             hotword_id=hotword_id,
             vip=bool(vip),
+            s3_key=s3_key,
+            file_hash=file_hash,
             created_at=datetime.now(timezone.utc),
         )
         self._tasks[task_id] = task

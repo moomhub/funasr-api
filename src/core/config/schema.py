@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from typing import List, Optional
+from urllib.parse import quote_plus
 
 
 @dataclass
@@ -17,12 +18,47 @@ class MySQLConfig:
 
     @property
     def url(self) -> str:
-        return f"mysql+pymysql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
+        username = quote_plus(str(self.username))
+        password = quote_plus(str(self.password))
+        return f"mysql+pymysql://{username}:{password}@{self.host}:{self.port}/{self.database}"
+
+
+@dataclass
+class SQLiteConfig:
+    path: str = "./data/sqlite/funasr_tasks.db"
+    pool_size: int = 5
+    pool_recycle: int = 3600
+    echo: bool = False
 
 
 @dataclass
 class DatabaseConfig:
+    type: str = "sqlite"
+    sqlite: SQLiteConfig = field(default_factory=SQLiteConfig)
     mysql: MySQLConfig = field(default_factory=MySQLConfig)
+
+
+@dataclass
+class LocalStorageConfig:
+    root: str = "./data/files"
+    prefix: str = "audio"
+
+
+@dataclass
+class S3StorageConfig:
+    endpoint: str = ""
+    access_key: str = ""
+    secret_key: str = ""
+    bucket: str = "funasr-audio"
+    region: str = "us-east-1"
+    prefix: str = "audio"
+
+
+@dataclass
+class StorageConfig:
+    type: str = "local"
+    local: LocalStorageConfig = field(default_factory=LocalStorageConfig)
+    s3: S3StorageConfig = field(default_factory=S3StorageConfig)
 
 
 @dataclass

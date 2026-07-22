@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shutil
-import uuid
 from pathlib import Path
 from typing import Any, Optional
 
@@ -40,9 +38,14 @@ class FileIndex:
             )
             return None
 
-    def record(self, task_key: str, source: str, filename: str, stored: StoredFileResult) -> None:
+    def record(self, task_key: str, source: str, filename: str, stored: StoredFileResult) -> bool:
         if self.repository is None:
-            return
+            logger.info(
+                "File index skipped: task_id=%s backend=%s reason=repository_disabled",
+                task_key,
+                stored.storage_backend,
+            )
+            return False
         try:
             self.repository.create(
                 task_key=task_key,
@@ -58,6 +61,12 @@ class FileIndex:
                 upload_status=stored.upload_status,
                 is_reused=stored.is_reused,
             )
+            logger.info(
+                "File index saved: task_id=%s backend=%s",
+                task_key,
+                stored.storage_backend,
+            )
+            return True
         except Exception as exc:
             log_exception(
                 logger,
@@ -66,6 +75,7 @@ class FileIndex:
                 exc,
                 context={"task_id": task_key, "source": source, "filename": filename},
             )
+            return False
 
 
 class ArchiveStorage:
@@ -82,78 +92,39 @@ class ArchiveStorage:
         file_sha256: str,
         file_size: int,
     ) -> Optional[StoredFileResult]:
-        s3_config = self.config.get("storage.s3", {}) or {}
-        prefix = str(
-            self.config.get_env(
-                "storage.s3.prefix",
-                "S3_PREFIX",
-                s3_config.get("prefix", "audio"),
-            )
-            or ""
-        ).strip("/")
-        stored_filename = f"{task_key}_{uuid.uuid4().hex}{path.suffix}"
-        s3_key = f"{prefix}/{stored_filename}" if prefix else stored_filename
-
-        if self.audio_backup_store is not None and self.audio_backup_store.enabled:
-            try:
-                uploaded_key = await self.audio_backup_store.backup_original(
-                    str(path),
-                    task_key,
-                    filename,
-                )
-                if uploaded_key:
-                    logger.info("文件归档完成: backend=s3 task_id=%s", task_key)
-                    logger.debug(
-                        "文件归档详情: backend=s3 task_id=%s source=%s key=%s size=%s",
-                        task_key,
-                        source,
-                        uploaded_key,
-                        file_size,
-                    )
-                    return StoredFileResult(
-                        s3_key=uploaded_key,
-                        storage_backend="s3",
-                        bucket_name=self.audio_backup_store.bucket,
-                        stored_filename=Path(uploaded_key).name,
-                        file_sha256=file_sha256,
-                        file_size=file_size,
-                    )
-                logger.debug(
-                    "S3 归档未返回 key，使用本地兜底: task_id=%s source=%s",
-                    task_key,
-                    source,
-                )
-            except Exception as exc:
-                log_exception(
-                    logger,
-                    logging.WARNING,
-                    "S3 archive upload",
-                    exc,
-                    context={"task_id": task_key, "source": source, "path": str(path)},
-                )
-
-        local_root = Path(self.config.get_runtime_paths()["local_files_dir"])
-        local_dir = local_root / prefix if prefix else local_root
-        local_dir.mkdir(parents=True, exist_ok=True)
-        destination = local_dir / stored_filename
-        await asyncio.to_thread(shutil.copy2, str(path), str(destination))
-        logger.info("文件归档完成: backend=local task_id=%s", task_key)
-        logger.debug(
-            "文件归档详情: backend=local task_id=%s source=%s path=%s key=%s size=%s",
+        store = self.audio_backup_store
+        if store is None or not store.enabled:
+            raise RuntimeError("Configured archive storage is unavailable")
+        backend = str(store.name)
+        logger.info(
+            "File archive started: backend=%s task_id=%s source=%s size_bytes=%s",
+            backend,
             task_key,
             source,
-            destination,
-            s3_key,
+            file_size,
+        )
+        stored_key = await store.backup_original(str(path), task_key, filename)
+        if not stored_key:
+            raise RuntimeError("Configured archive storage returned no key")
+        local_path = store.get_local_path(stored_key)
+        logger.info("File archive completed: backend=%s task_id=%s", backend, task_key)
+        logger.debug(
+            "File archive details: backend=%s task_id=%s source=%s key=%s local_path=%s size=%s",
+            backend,
+            task_key,
+            source,
+            stored_key,
+            local_path,
             file_size,
         )
         return StoredFileResult(
-            s3_key=s3_key,
-            storage_backend="local",
-            bucket_name=None,
-            stored_filename=stored_filename,
+            s3_key=stored_key,
+            storage_backend=backend,
+            bucket_name=getattr(store, "bucket", None),
+            stored_filename=Path(stored_key).name,
             file_sha256=file_sha256,
             file_size=file_size,
-            local_path=str(destination),
+            local_path=local_path,
         )
 
 

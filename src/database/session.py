@@ -2,7 +2,7 @@
 数据库会话管理
 """
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 import logging
@@ -93,6 +93,11 @@ class DatabaseManager:
     def get_session(self) -> Session:
         """获取数据库会话"""
         return self.SessionLocal()
+
+    def check_connection(self) -> None:
+        """Verify that the selected database accepts a simple query."""
+        with self.engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
     
     @contextmanager
     def session_scope(self) -> Generator[Session, None, None]:

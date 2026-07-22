@@ -11,11 +11,15 @@ from .schema import (
     EnginesConfig,
     EnginesModelsConfig,
     HotwordConfig,
+    LocalStorageConfig,
     ModeModelConfig,
     ModelVariantConfig,
     MySQLConfig,
     ProcessingConfig,
+    S3StorageConfig,
     SpeakerModeConfig,
+    SQLiteConfig,
+    StorageConfig,
 )
 
 
@@ -33,7 +37,43 @@ class TypedConfigBuilder:
         self.get_runtime_paths = get_runtime_paths
 
     def database(self) -> DatabaseConfig:
+        database_cfg = self._section("database")
+        sqlite_cfg = self._section("database", "sqlite")
         mysql_cfg = self._section("database", "mysql")
+        database_type = str(
+            self._env(
+                "database.type",
+                "DATABASE_TYPE",
+                database_cfg.get("type", "sqlite"),
+            )
+            or "sqlite"
+        ).strip().lower()
+        runtime_paths = self.get_runtime_paths()
+        sqlite = SQLiteConfig(
+            path=runtime_paths["sqlite_path"],
+            pool_size=as_int(
+                self._env(
+                    "database.sqlite.pool_size",
+                    "SQLITE_POOL_SIZE",
+                    sqlite_cfg.get("pool_size", 5),
+                )
+            ),
+            pool_recycle=as_int(
+                self._env(
+                    "database.sqlite.pool_recycle",
+                    "SQLITE_POOL_RECYCLE",
+                    sqlite_cfg.get("pool_recycle", 3600),
+                )
+            ),
+            echo=as_bool(
+                self._env(
+                    "database.sqlite.echo",
+                    "SQLITE_ECHO",
+                    sqlite_cfg.get("echo", False),
+                ),
+                False,
+            ),
+        )
         mysql = MySQLConfig(
             host=self._env("database.mysql.host", "DB_HOST", mysql_cfg.get("host", "localhost")),
             port=as_int(self._env("database.mysql.port", "DB_PORT", mysql_cfg.get("port", 3306))),
@@ -67,7 +107,41 @@ class TypedConfigBuilder:
                 False,
             ),
         )
-        return DatabaseConfig(mysql=mysql)
+        return DatabaseConfig(type=database_type, sqlite=sqlite, mysql=mysql)
+
+    def storage(self) -> StorageConfig:
+        storage_cfg = self._section("storage")
+        local_cfg = self._section("storage", "local")
+        s3_cfg = self._section("storage", "s3")
+        storage_type = str(
+            self._env(
+                "storage.type",
+                "STORAGE_TYPE",
+                storage_cfg.get("type", "local"),
+            )
+            or "local"
+        ).strip().lower()
+        runtime_paths = self.get_runtime_paths()
+        local = LocalStorageConfig(
+            root=runtime_paths["local_files_dir"],
+            prefix=str(
+                self._env(
+                    "storage.local.prefix",
+                    "STORAGE_LOCAL_PREFIX",
+                    local_cfg.get("prefix", "audio"),
+                )
+                or ""
+            ).strip("/\\"),
+        )
+        s3 = S3StorageConfig(
+            endpoint=str(self._env("storage.s3.endpoint", "S3_ENDPOINT", s3_cfg.get("endpoint", "")) or ""),
+            access_key=str(self._env("storage.s3.access_key", "S3_ACCESS_KEY", s3_cfg.get("access_key", "")) or ""),
+            secret_key=str(self._env("storage.s3.secret_key", "S3_SECRET_KEY", s3_cfg.get("secret_key", "")) or ""),
+            bucket=str(self._env("storage.s3.bucket", "S3_BUCKET", s3_cfg.get("bucket", "funasr-audio")) or ""),
+            region=str(self._env("storage.s3.region", "S3_REGION", s3_cfg.get("region", "us-east-1")) or ""),
+            prefix=str(self._env("storage.s3.prefix", "S3_PREFIX", s3_cfg.get("prefix", "audio")) or "").strip("/"),
+        )
+        return StorageConfig(type=storage_type, local=local, s3=s3)
 
     def engines(self) -> EnginesConfig:
         engines_cfg = self._section("engines")
