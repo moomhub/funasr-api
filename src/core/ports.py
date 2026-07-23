@@ -57,7 +57,7 @@ class TaskRepository(Protocol):
     def save_result(self, task_id: str, full_text: str, segments: List[Dict[str, Any]], processing_time: float, word_timestamps: List[Any] = None) -> Optional[TaskRecord]:
         ...
 
-    def record_error(self, task_id: str, error_message: str, retry: bool = True) -> Optional[TaskRecord]:
+    def record_error(self, task_id: str, error_message: str, retry: bool = False) -> Optional[TaskRecord]:
         ...
 
     def record_file_info(self, task_id: str, s3_key: str = None, file_hash: str = None) -> Optional[TaskRecord]:
@@ -92,7 +92,7 @@ class SpeakerTaskRepository(Protocol):
     def save_result(self, task_id: str, result: dict, processing_time: float, **kwargs: Any) -> Any:
         ...
 
-    def record_error(self, task_id: str, error_message: str, retry: bool = True) -> Any:
+    def record_error(self, task_id: str, error_message: str, retry: bool = False) -> Any:
         ...
 
 

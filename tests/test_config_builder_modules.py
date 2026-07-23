@@ -34,6 +34,7 @@ def test_typed_config_builder_applies_environment_overrides():
     overrides = {
         "DB_PORT": "4406",
         "ENGINES_ENABLED": "offline,spk",
+        "OFFLINE_SPK_VERIFICATION_ENABLED": "false",
         "ONLINE_CHUNK_SIZE": "1,2,3",
         "HOTWORDS_DEFAULT_IDS": "7,8",
     }
@@ -44,7 +45,11 @@ def test_typed_config_builder_applies_environment_overrides():
     builder = TypedConfigBuilder(
         config,
         get_env,
-        lambda: {"models_dir": "runtime/models", "temp_dir": "runtime/temp"},
+        lambda: {
+            "models_dir": "runtime/models",
+            "temp_dir": "runtime/temp",
+            "sqlite_path": "runtime/sqlite.db",
+        },
     )
 
     database = builder.database()
@@ -58,6 +63,7 @@ def test_typed_config_builder_applies_environment_overrides():
     assert engines.models.offline.onnx.asr == "offline-asr"
     assert engines.models.spk.spk == "speaker-model"
     assert engines.model_dir == "runtime/models"
+    assert processing.offline_spk_verification_enabled is False
     assert processing.online_chunk_size == [1, 2, 3]
     assert processing.temp_dir == "runtime/temp"
     assert hotwords.default_ids == [7, 8]
@@ -67,12 +73,13 @@ def test_typed_config_builder_tolerates_non_mapping_optional_sections():
     builder = TypedConfigBuilder(
         {"database": None, "engines": {"models": None}, "processing": None},
         lambda _key, _env_var, default=None: default,
-        lambda: {"models_dir": "models", "temp_dir": "temp"},
+        lambda: {"models_dir": "models", "temp_dir": "temp", "sqlite_path": "sqlite.db"},
     )
 
     assert builder.database().mysql.host == "localhost"
     assert builder.engines().models.spk.spk is None
     assert builder.processing().temp_dir == "temp"
+    assert builder.processing().offline_spk_verification_enabled is True
 
 
 def test_removed_configuration_validation_is_independent_of_loader():

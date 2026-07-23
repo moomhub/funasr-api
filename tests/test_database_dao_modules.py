@@ -94,9 +94,11 @@ def test_offline_repository_preserves_task_lifecycle_and_priority(tmp_path):
         assert archived.file_hash == "hash-normal"
 
         repository.create_task("retry", "retry.wav", 30)
-        assert repository.record_error("retry", "first").status == "pending"
-        assert repository.record_error("retry", "second").status == "pending"
+        first_failed = repository.record_error("retry", "first")
+        second_failed = repository.record_error("retry", "second")
         failed = repository.record_error("retry", "third")
+        assert first_failed.status == "failed"
+        assert second_failed.status == "failed"
         assert failed.status == "failed"
         assert failed.retry_count == 3
         assert failed.completed_at is not None

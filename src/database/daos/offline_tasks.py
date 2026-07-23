@@ -75,7 +75,6 @@ class OfflineTaskDAO:
     def get_pending_tasks(limit: int = 100, *, session: Session) -> List[OfflineTask]:
         return session.query(OfflineTask).filter(
             OfflineTask.status == "pending",
-            OfflineTask.retry_count < OfflineTask.max_retries,
         ).order_by(
             OfflineTask.vip.desc(),
             OfflineTask.created_at.asc(),
@@ -154,7 +153,7 @@ class OfflineTaskDAO:
     def update_error(
         task_id: str,
         error_message: str,
-        retry: bool = True,
+        retry: bool = False,
         *,
         session: Session,
     ) -> Optional[OfflineTask]:
@@ -163,18 +162,11 @@ class OfflineTaskDAO:
             return None
         task.error_message = error_message
         task.retry_count += 1
-        if retry and task.retry_count < task.max_retries:
-            task.status = "pending"
-            logger.warning(
-                "离线任务待重试: task_id=%s retry=%s/%s",
-                task_id,
-                task.retry_count,
-                task.max_retries,
-            )
-        else:
-            task.status = "failed"
-            task.completed_at = datetime.now(timezone.utc)
-            logger.error("离线任务失败: task_id=%s", task_id)
+        task.status = "failed"
+        task.completed_at = datetime.now(timezone.utc)
+        if retry:
+            logger.info("离线任务重试已改为手动接口: task_id=%s", task_id)
+        logger.error("离线任务失败: task_id=%s", task_id)
         return task
 
 

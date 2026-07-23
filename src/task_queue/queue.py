@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import List, Optional
+from typing import List
 
 from src.application.tasks import TaskSubmissionUnavailableError
 from src.task_queue.batch import ImmediateBatchProcessor
-from src.task_queue.policy import is_task_retriable
 from src.task_queue.recovery import recover_and_enqueue_tasks
 from src.task_queue.workers import QueueWorkerRuntime
 
@@ -41,7 +39,6 @@ class OfflineTaskQueue:
 
         self._runtime = QueueWorkerRuntime(
             process_task=self._process_queued_task,
-            resolve_retry_vip=self._resolve_retry_vip,
             logger=logger,
         )
         self._batch_processor = ImmediateBatchProcessor(
@@ -61,24 +58,12 @@ class OfflineTaskQueue:
         )
 
     @property
-    def retry_delay_seconds(self) -> float:
-        return self._runtime.retry_delay_seconds
-
-    @retry_delay_seconds.setter
-    def retry_delay_seconds(self, value: float) -> None:
-        self._runtime.retry_delay_seconds = float(value)
-
-    @property
     def _queue(self):
         return self._runtime.queue
 
     @property
     def _task_registry(self):
         return self._runtime.registry
-
-    @property
-    def _retry_scheduler(self):
-        return self._runtime.retry_scheduler
 
     @property
     def _workers(self):
@@ -173,28 +158,6 @@ class OfflineTaskQueue:
             return await self._process_spk_task(task_id)
         if kind == "offline":
             return await self._process_single_task(task_id)
-        raise ValueError(f"Unsupported queue task kind: {kind}")
-
-    async def _resolve_retry_vip(
-        self,
-        kind: str,
-        task_id: str,
-    ) -> Optional[bool]:
-        if kind == "spk" and self.spk_task_service is None:
-            return None
-        repository = self._repository_for_kind(kind)
-        if repository is None:
-            return None
-        task = await asyncio.to_thread(repository.get_task, task_id)
-        if not is_task_retriable(task):
-            return None
-        return bool(task.vip)
-
-    def _repository_for_kind(self, kind: str):
-        if kind == "offline":
-            return self.task_repository
-        if kind == "spk":
-            return self.speaker_task_repository
         raise ValueError(f"Unsupported queue task kind: {kind}")
 
     async def _process_single_task(self, task_id: str) -> bool:

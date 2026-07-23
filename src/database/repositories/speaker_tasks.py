@@ -38,7 +38,7 @@ class SqlSpeakerTaskRepository:
     def save_result(self, task_id: str, result: dict, processing_time: float, **kwargs: Any) -> Any:
         return self._call(SpkTaskDAO.update_result, task_id, result, processing_time, **kwargs)
 
-    def record_error(self, task_id: str, error_message: str, retry: bool = True) -> Any:
+    def record_error(self, task_id: str, error_message: str, retry: bool = False) -> Any:
         return self._call(SpkTaskDAO.update_error, task_id, error_message, retry=retry)
 
 

@@ -69,7 +69,6 @@ class SpkTaskDAO:
     def get_pending_tasks(limit: int = 100, *, session: Session) -> List[SpkTask]:
         return session.query(SpkTask).filter(
             SpkTask.status == "pending",
-            SpkTask.retry_count < SpkTask.max_retries,
         ).order_by(
             SpkTask.vip.desc(),
             SpkTask.created_at.asc(),
@@ -132,7 +131,7 @@ class SpkTaskDAO:
     def update_error(
         task_id: str,
         error_message: str,
-        retry: bool = True,
+        retry: bool = False,
         *,
         session: Session,
     ) -> Optional[SpkTask]:
@@ -141,11 +140,10 @@ class SpkTaskDAO:
             return None
         task.error_message = error_message
         task.retry_count += 1
-        if retry and task.retry_count < task.max_retries:
-            task.status = "pending"
-        else:
-            task.status = "failed"
-            task.completed_at = datetime.now(timezone.utc)
+        task.status = "failed"
+        task.completed_at = datetime.now(timezone.utc)
+        if retry:
+            logger.info("SPK 任务重试已改为手动接口: task_id=%s", task_id)
         return task
 
 

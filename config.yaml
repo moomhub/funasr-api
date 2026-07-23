@@ -107,6 +107,8 @@ logging:
 processing:
   max_concurrent_tasks: 4
   cleanup_on_complete: true
+  offline:
+    spk_verification_enabled: false          # true=OFFLINE 任务执行二次 SPK 校验并按说话人重组；false=仅返回 ASR 结果
   offline_async:
     enabled: true
     allow_immediate: true

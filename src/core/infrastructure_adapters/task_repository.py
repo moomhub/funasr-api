@@ -55,7 +55,7 @@ class MemoryTaskRepository:
         tasks = [
             task
             for task in self._tasks.values()
-            if task.status == "pending" and task.retry_count < task.max_retries
+            if task.status == "pending"
         ]
         tasks.sort(
             key=lambda item: (
@@ -119,18 +119,15 @@ class MemoryTaskRepository:
         self,
         task_id: str,
         error_message: str,
-        retry: bool = True,
+        retry: bool = False,
     ) -> Optional[TaskRecord]:
         task = self._tasks.get(task_id)
         if not task:
             return None
         task.error_message = error_message
         task.retry_count += 1
-        if retry and task.retry_count < task.max_retries:
-            task.status = "pending"
-        else:
-            task.status = "failed"
-            task.completed_at = datetime.now(timezone.utc)
+        task.status = "failed"
+        task.completed_at = datetime.now(timezone.utc)
         return task
 
     def record_file_info(

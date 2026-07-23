@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.core.adapters import MemoryTaskRepository
-from src.task_queue.execution import DelayedRetryScheduler, TaskExecutionRegistry
+from src.task_queue.execution import TaskExecutionRegistry
 from src.task_queue.queue import OfflineTaskQueue
 
 
@@ -21,30 +21,6 @@ def test_task_execution_registry_blocks_queued_and_inflight_duplicates():
     assert registry.try_begin_external(key) is True
     registry.finish(key)
     assert registry.try_enqueue(key) is True
-
-
-@pytest.mark.asyncio
-async def test_delayed_retry_scheduler_deduplicates_task_keys():
-    scheduler = DelayedRetryScheduler()
-    release = asyncio.Event()
-    calls = []
-
-    async def retry():
-        calls.append("retry")
-        await release.wait()
-
-    key = ("offline", "task-1")
-    assert scheduler.schedule(key, retry, name="retry-1") is True
-    assert scheduler.schedule(key, retry, name="retry-duplicate") is False
-    await asyncio.sleep(0)
-    assert calls == ["retry"]
-
-    release.set()
-    for _ in range(10):
-        if not scheduler:
-            break
-        await asyncio.sleep(0)
-    assert bool(scheduler) is False
 
 
 class _ProcessingConfig:

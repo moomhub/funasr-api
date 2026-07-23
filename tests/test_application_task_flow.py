@@ -23,7 +23,7 @@ class _Repository:
     def update_status(self, task_id, status):
         self.statuses.append((task_id, status))
 
-    def record_error(self, task_id, error_message, retry=True):
+    def record_error(self, task_id, error_message, retry=False):
         self.errors.append((task_id, error_message, retry))
 
 

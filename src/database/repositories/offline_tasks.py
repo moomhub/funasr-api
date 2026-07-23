@@ -58,7 +58,7 @@ class SqlTaskRepository:
     def save_result(self, task_id: str, full_text: str, segments: List[Dict[str, Any]], processing_time: float, word_timestamps: List[Any] = None) -> Optional[TaskRecord]:
         return self._to_record(self._call(OfflineTaskDAO.update_result, task_id, full_text, segments, processing_time, word_timestamps=word_timestamps))
 
-    def record_error(self, task_id: str, error_message: str, retry: bool = True) -> Optional[TaskRecord]:
+    def record_error(self, task_id: str, error_message: str, retry: bool = False) -> Optional[TaskRecord]:
         return self._to_record(self._call(OfflineTaskDAO.update_error, task_id, error_message, retry=retry))
 
     def record_file_info(self, task_id: str, s3_key: str = None, file_hash: str = None) -> Optional[TaskRecord]:

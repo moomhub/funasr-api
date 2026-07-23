@@ -32,7 +32,7 @@ class _Repository:
     def save_result(self, **kwargs):
         self.saved = kwargs
 
-    def record_error(self, task_id, error_message, retry=True):
+    def record_error(self, task_id, error_message, retry=False):
         self.error = (task_id, error_message, retry)
 
 
@@ -132,4 +132,4 @@ async def test_spk_task_service_records_error_when_audio_missing(tmp_path):
     assert ok is False
     assert repository.error[0] == "spk-1"
     assert "音频文件不存在" in repository.error[1]
-    assert repository.error[2] is True
+    assert repository.error[2] is False

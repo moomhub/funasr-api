@@ -131,7 +131,7 @@ class SpkTaskService:
                 self.speaker_task_repository,
                 task_id,
                 str(exc),
-                retry=True,
+                retry=False,
             )
             return False
 

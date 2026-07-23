@@ -211,15 +211,12 @@ class _RetryingTaskService:
 
     async def process_task(self, task_id):
         self.attempts += 1
-        if self.attempts == 1:
-            self.repository.record_error(task_id, "retry", retry=True)
-            return False
-        self.repository.save_result(task_id, "ok", [], 0.01)
-        return True
+        self.repository.record_error(task_id, "failed", retry=False)
+        return False
 
 
 @pytest.mark.asyncio
-async def test_failed_pending_task_is_retried_in_current_process():
+async def test_failed_pending_task_stays_failed_without_automatic_retry():
     repository = MemoryTaskRepository()
     repository.create_task("retry-task", "retry.wav", 1)
     service = _RetryingTaskService(repository)
@@ -230,15 +227,14 @@ async def test_failed_pending_task_is_retried_in_current_process():
         task_service=service,
         speaker_task_repository=object(),
     )
-    task_queue.retry_delay_seconds = 0.01
     task_queue.start()
     try:
         for _ in range(100):
-            if repository.get_task("retry-task").status == "completed":
+            if repository.get_task("retry-task").status == "failed":
                 break
             await asyncio.sleep(0.01)
-        assert repository.get_task("retry-task").status == "completed"
-        assert service.attempts == 2
+        assert repository.get_task("retry-task").status == "failed"
+        assert service.attempts == 1
     finally:
         await task_queue.stop()
 

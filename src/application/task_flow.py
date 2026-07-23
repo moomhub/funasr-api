@@ -53,7 +53,7 @@ async def record_task_error(
     task_id: str,
     error_message: str,
     *,
-    retry: bool = True,
+    retry: bool = False,
 ) -> None:
     await asyncio.to_thread(repository.record_error, task_id, error_message, retry=retry)
 

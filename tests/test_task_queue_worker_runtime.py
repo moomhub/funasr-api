@@ -5,30 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from src.task_queue.batch import ImmediateBatchProcessor
-from src.task_queue.execution import DelayedRetryScheduler, TaskExecutionRegistry
+from src.task_queue.execution import TaskExecutionRegistry
 from src.task_queue.queue import OfflineTaskQueue
-
-
-@pytest.mark.asyncio
-async def test_retry_scheduler_can_release_and_reschedule_same_key():
-    scheduler = DelayedRetryScheduler()
-    key = ("offline", "task-1")
-    second_ran = asyncio.Event()
-
-    async def second_retry():
-        second_ran.set()
-
-    async def first_retry():
-        assert scheduler.release_current(key) is True
-        assert scheduler.schedule(key, second_retry, name="second-retry") is True
-
-    assert scheduler.schedule(key, first_retry, name="first-retry") is True
-    await asyncio.wait_for(second_ran.wait(), timeout=1)
-    for _ in range(10):
-        if not scheduler:
-            break
-        await asyncio.sleep(0)
-    assert bool(scheduler) is False
 
 
 class _ProcessingConfig:
@@ -83,7 +61,7 @@ class _BatchHandler:
 
 
 @pytest.mark.asyncio
-async def test_retry_lookup_failure_does_not_kill_queue_worker(caplog):
+async def test_failed_queue_task_does_not_retry_and_worker_continues(caplog):
     service = _TaskService()
     queue = OfflineTaskQueue(
         config=_Config(),
@@ -92,7 +70,6 @@ async def test_retry_lookup_failure_does_not_kill_queue_worker(caplog):
         task_service=service,
         speaker_task_repository=None,
     )
-    queue.retry_delay_seconds = 0
 
     with caplog.at_level(logging.DEBUG, logger="src.task_queue.queue"):
         queue.start()
@@ -111,7 +88,7 @@ async def test_retry_lookup_failure_does_not_kill_queue_worker(caplog):
         if record.levelno == logging.WARNING
     ]
     assert service.calls == ["bad", "good"]
-    assert any("Queue retry lookup failed" in message for message in warning_messages)
+    assert not any("Queue retry lookup failed" in message for message in warning_messages)
     assert all("private database details" not in message for message in warning_messages)
 
 

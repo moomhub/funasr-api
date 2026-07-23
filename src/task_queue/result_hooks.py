@@ -70,7 +70,7 @@ class ResultPersistenceHook(BaseOfflineTaskResultHook):
             self.task_repository.record_error,
             task_id=context.task_id,
             error_message=error_message,
-            retry=True,
+            retry=False,
         )
 
 

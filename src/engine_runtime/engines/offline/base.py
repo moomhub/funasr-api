@@ -34,6 +34,10 @@ class BaseOfflineRecognizer(ABC):
         self.model_manager = model_manager
         self._speaker_runner = StandaloneSpeakerRunner(model_manager)
 
+    def _spk_verification_enabled(self) -> bool:
+        processing_config = getattr(self.model_manager, "processing_config", None)
+        return bool(getattr(processing_config, "offline_spk_verification_enabled", True))
+
     @abstractmethod
     def load_model(self) -> Any:
         """Load or retrieve the backend-specific model object."""

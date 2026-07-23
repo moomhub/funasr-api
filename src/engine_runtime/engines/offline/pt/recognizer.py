@@ -53,6 +53,14 @@ class PTOfflineRecognizer(BaseOfflineRecognizer):
 
         # 中文注释：PT 主识别完成后，再单独跑一次整段音频的 SPK，
         # 后续说话人分配与重组都以 standalone SPK 的结果为准。
+        if not self._spk_verification_enabled():
+            logger.info("OFFLINE PT SPK 二次校验已按配置跳过")
+            return {
+                "asr_result": asr_result,
+                "speaker_result": None,
+                "speaker_verification_skipped": True,
+            }
+
         speaker_result = await self._recognize_speaker(request.audio_path, request.generate_kwargs)
         return {
             "asr_result": asr_result,
@@ -87,7 +95,8 @@ class PTOfflineRecognizer(BaseOfflineRecognizer):
                 logger.warning("句子信息为空")
                 return normalize_recognition_result(result, mode="offline", is_final=True)
 
-            if not self._has_usable_timestamps(sentence_info):
+            speaker_verification_skipped = bool(payload.get("speaker_verification_skipped"))
+            if speaker_verification_skipped or not self._has_usable_timestamps(sentence_info):
                 result.segments = extract_segments_from_sentence_info(sentence_info)
                 result.full_text = str(asr_result.get("text") or "".join(
                     segment.text for segment in result.segments

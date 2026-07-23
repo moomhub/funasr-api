@@ -191,6 +191,7 @@ class TypedConfigBuilder:
     def processing(self) -> ProcessingConfig:
         processing_cfg = self._section("processing")
         offline_cfg = self._section("processing", "offline_async")
+        offline_processing_cfg = self._section("processing", "offline")
         online_cfg = self._section("processing", "online")
         runtime_paths = self.get_runtime_paths()
 
@@ -250,6 +251,14 @@ class TypedConfigBuilder:
                     "processing.offline_async.allow_immediate",
                     "OFFLINE_ASYNC_ALLOW_IMMEDIATE",
                     offline_cfg.get("allow_immediate", True),
+                ),
+                True,
+            ),
+            offline_spk_verification_enabled=as_bool(
+                self._env(
+                    "processing.offline.spk_verification_enabled",
+                    "OFFLINE_SPK_VERIFICATION_ENABLED",
+                    offline_processing_cfg.get("spk_verification_enabled", True),
                 ),
                 True,
             ),

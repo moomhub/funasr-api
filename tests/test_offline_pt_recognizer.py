@@ -34,15 +34,21 @@ class _FakeSpeakerRecognizer:
 
 
 class _FakeManager:
-    def __init__(self, offline_model, speaker_recognizer):
+    def __init__(self, offline_model, speaker_recognizer, processing_config=None):
         self.offline_model = offline_model
         self.speaker_recognizer = speaker_recognizer
+        self.processing_config = processing_config
 
     def get_offline_model(self):
         return self.offline_model
 
     def get_spk_recognizer(self):
         return self.speaker_recognizer
+
+
+class _ProcessingConfig:
+    def __init__(self, offline_spk_verification_enabled=True):
+        self.offline_spk_verification_enabled = offline_spk_verification_enabled
 
 
 @pytest.mark.asyncio
@@ -150,6 +156,43 @@ async def test_pt_offline_recognizer_fails_when_required_speaker_result_is_unusa
 
     assert result.error == "OFFLINE PT 推理失败: OFFLINE SPK 二次校验失败: spk unavailable"
     assert result.is_final is False
+
+
+@pytest.mark.asyncio
+async def test_pt_offline_recognizer_skips_standalone_spk_when_disabled_by_config():
+    offline_model = _FakeOfflineModel(
+        [
+            {
+                "text": "第一句第二句",
+                "sentence_info": [
+                    {"sentence": "第一句", "start": 0, "end": 900, "spk": 0, "timestamp": []},
+                    {"sentence": "第二句", "start": 900, "end": 1800, "spk": 0, "timestamp": []},
+                ]
+            }
+        ]
+    )
+    speaker_recognizer = _FakeSpeakerRecognizer(
+        {
+            "segments": [
+                {"start": 0, "end": 800, "speaker": "A"},
+                {"start": 800, "end": 1800, "speaker": "B"},
+            ]
+        }
+    )
+    recognizer = PTOfflineRecognizer(
+        _FakeManager(
+            offline_model,
+            speaker_recognizer,
+            _ProcessingConfig(offline_spk_verification_enabled=False),
+        )
+    )
+
+    result = await recognizer.recognize(OfflineRecognitionRequest(audio_path="demo.wav"))
+
+    assert speaker_recognizer.requests == []
+    assert [segment.text for segment in result.segments] == ["第一句", "第二句"]
+    assert result.full_text == "第一句第二句"
+    assert "speaker_result" not in result.metadata
 
 
 def test_pt_speaker_merge_splits_timestamp_tokens_at_speaker_boundary():

@@ -225,9 +225,16 @@ class OfflineONNXRecognizer(BaseOfflineRecognizer):
             **request.generate_kwargs,
         )
         self._log_onnx_asr_result(request.audio_path, payload)
-        speaker = await self._recognize_speaker(request.audio_path, request.generate_kwargs)
-        self._log_standalone_spk_result(request.audio_path, speaker)
+        speaker = None
+        spk_verification_enabled = self._spk_verification_enabled()
+        if spk_verification_enabled:
+            speaker = await self._recognize_speaker(request.audio_path, request.generate_kwargs)
+            self._log_standalone_spk_result(request.audio_path, speaker)
+        else:
+            logger.info("OFFLINE ONNX SPK 二次校验已按配置跳过")
         merged_payload = model.merge_speaker_result(payload, speaker)
+        if not spk_verification_enabled:
+            merged_payload["speaker_verification_skipped"] = True
         self._log_merge_result(payload, speaker, merged_payload)
         return merged_payload
 
@@ -245,7 +252,10 @@ class OfflineONNXRecognizer(BaseOfflineRecognizer):
             sentence_info,
             speaker_normalizer=normalize_speaker_id,
         )
-        result.full_text = build_full_text_with_speaker(result.segments) if result.segments else (payload or {}).get("text", "")
+        if payload and payload.get("speaker_verification_skipped"):
+            result.full_text = (payload or {}).get("text") or "".join(segment.text for segment in result.segments)
+        else:
+            result.full_text = build_full_text_with_speaker(result.segments) if result.segments else (payload or {}).get("text", "")
         if payload and payload.get("speaker_error"):
             result.metadata["speaker_error"] = payload["speaker_error"]
         if payload and payload.get("speaker_result"):

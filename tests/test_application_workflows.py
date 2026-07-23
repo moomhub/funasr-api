@@ -56,7 +56,7 @@ class _Repository:
         self.created.append(kwargs)
         return SimpleNamespace(id=kwargs["task_id"])
 
-    def record_error(self, task_id, error_message, retry=True):
+    def record_error(self, task_id, error_message, retry=False):
         self.errors.append((task_id, error_message, retry))
         return SimpleNamespace(id=task_id, status="failed")
 
@@ -202,7 +202,7 @@ async def test_task_submission_marks_created_task_failed_when_enqueue_races_with
 @pytest.mark.asyncio
 async def test_task_submission_preserves_file_when_failure_state_cannot_be_persisted():
     class BrokenRepository(_Repository):
-        def record_error(self, task_id, error_message, retry=True):
+        def record_error(self, task_id, error_message, retry=False):
             raise RuntimeError("database unavailable")
 
     class FailingScheduler(_Scheduler):

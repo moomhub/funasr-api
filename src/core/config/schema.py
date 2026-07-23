@@ -111,6 +111,7 @@ class ProcessingConfig:
     max_temp_age_hours: int = 24
     offline_async_enabled: bool = True
     offline_async_allow_immediate: bool = True
+    offline_spk_verification_enabled: bool = True
     online_queue_max_chunks: int = 32
     online_decode_interval: float = 0.48
     online_first_decode_ms: int = 600

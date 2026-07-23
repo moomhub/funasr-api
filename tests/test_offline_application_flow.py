@@ -152,7 +152,7 @@ class _FakeRepository:
         }
         return self.task
 
-    def record_error(self, task_id, error_message, retry=True):
+    def record_error(self, task_id, error_message, retry=False):
         self.error = (task_id, error_message, retry)
 
 
