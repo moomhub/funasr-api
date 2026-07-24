@@ -58,7 +58,7 @@ engines:
   auto_model_download: true                  # false=仅使用本地已有模型，不联网下载；true=允许首次联网下载
   models:
     offline:
-      enabled: onnx
+      enabled: pt
       # pt:
       #   asr: "iic/speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
       #   vad: "iic/speech_fsmn_vad_zh-cn-16k-common-pytorch"
@@ -108,7 +108,7 @@ processing:
   max_concurrent_tasks: 4
   cleanup_on_complete: true
   offline:
-    spk_verification_enabled: false          # true=OFFLINE 任务执行二次 SPK 校验并按说话人重组；false=仅返回 ASR 结果
+    spk_verification_enabled: false          # true=PT 额外执行共享 SPK 二次校验；false=PT 仅用内置 CAM++；ONNX 始终使用共享 SPK
   offline_async:
     enabled: true
     allow_immediate: true

@@ -36,7 +36,7 @@ class PTOfflineRecognizer(BaseOfflineRecognizer):
             model.generate,
             request.audio_path,
             batch_size_s=300,
-            return_spk_res=False,
+            return_spk_res=True,
             hotword=request.hotwords,
             **request.generate_kwargs,
         )
@@ -45,16 +45,17 @@ class PTOfflineRecognizer(BaseOfflineRecognizer):
         asr_payload = self._unwrap_asr_result(asr_result)
         sentence_info = self._extract_asr_sentence_info(asr_payload)
         if not self._has_usable_timestamps(sentence_info):
-            logger.warning("OFFLINE PT ASR 未返回可用时间戳，跳过 SPK 并返回纯 ASR 结果")
+            logger.warning("OFFLINE PT ASR 未返回可用时间戳，跳过二次 SPK 并保留 PT 内置说话人结果")
             return {
                 "asr_result": asr_result,
                 "speaker_result": None,
+                "speaker_verification_skipped": True,
             }
 
-        # 中文注释：PT 主识别完成后，再单独跑一次整段音频的 SPK，
-        # 后续说话人分配与重组都以 standalone SPK 的结果为准。
+        # PT AutoModel 已返回内置 CAM++ 说话人结果；这里只按配置选择是否
+        # 再用共享 SPK 做二次校验，基础说话人标注不受该开关影响。
         if not self._spk_verification_enabled():
-            logger.info("OFFLINE PT SPK 二次校验已按配置跳过")
+            logger.info("OFFLINE PT 二次 SPK 校验已按配置跳过，使用 PT 内置说话人结果")
             return {
                 "asr_result": asr_result,
                 "speaker_result": None,
@@ -98,9 +99,12 @@ class PTOfflineRecognizer(BaseOfflineRecognizer):
             speaker_verification_skipped = bool(payload.get("speaker_verification_skipped"))
             if speaker_verification_skipped or not self._has_usable_timestamps(sentence_info):
                 result.segments = extract_segments_from_sentence_info(sentence_info)
-                result.full_text = str(asr_result.get("text") or "".join(
-                    segment.text for segment in result.segments
-                ))
+                if self._has_embedded_speaker_labels(sentence_info):
+                    result.full_text = build_full_text_with_speaker(result.segments)
+                else:
+                    result.full_text = str(asr_result.get("text") or "".join(
+                        segment.text for segment in result.segments
+                    ))
                 return normalize_recognition_result(result, mode="offline", is_final=True)
 
             speaker_result = payload.get("speaker_result")
@@ -153,6 +157,13 @@ class PTOfflineRecognizer(BaseOfflineRecognizer):
     @staticmethod
     def _has_usable_timestamps(sentence_info: List[Dict[str, Any]]) -> bool:
         return any(normalize_timestamps(sentence.get("timestamp")) for sentence in sentence_info)
+
+    @staticmethod
+    def _has_embedded_speaker_labels(sentence_info: List[Dict[str, Any]]) -> bool:
+        return any(
+            "spk" in sentence and sentence.get("spk") is not None
+            for sentence in sentence_info
+        )
 
     def _log_pt_asr_result(self, audio_path: str, asr_result: Any) -> None:
         asr_payload = self._unwrap_asr_result(asr_result)

@@ -72,7 +72,7 @@ def test_loader_replacement_invalidates_only_its_bundle_cache(tmp_path):
     assert manager.model_cache.offline_onnx_model_bundle is offline_bundle
 
 
-def test_offline_pt_model_excludes_embedded_speaker_model(tmp_path):
+def test_offline_pt_model_loads_embedded_speaker_model(tmp_path):
     manager = _manager(tmp_path, offline_backend="pt")
     calls = []
 
@@ -85,5 +85,5 @@ def test_offline_pt_model_excludes_embedded_speaker_model(tmp_path):
 
     manager.get_offline_model()
 
-    assert calls[0]["spk_model"] is None
-    assert calls[0]["cache_key"].count(":") == 3
+    assert calls[0]["spk_model"] == "iic/speech_campplus_sv_zh-cn_16k-common"
+    assert calls[0]["cache_key"].count(":") == 4

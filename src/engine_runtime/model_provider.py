@@ -95,12 +95,13 @@ class RuntimeModelProvider:
         asr_name = self.model_name("offline", "asr", backend)
         vad_name = self.model_name("offline", "vad", backend)
         punc_name = self.model_name("offline", "punc", backend)
+        spk_name = self.model_name("offline", "spk", backend)
         return self.pt_loader.load_model(
             model_name=asr_name,
             vad_model=vad_name,
             punc_model=punc_name,
-            spk_model=None,
-            cache_key=f"offline:{asr_name}:{vad_name}:{punc_name}",
+            spk_model=spk_name,
+            cache_key=f"offline:{asr_name}:{vad_name}:{punc_name}:{spk_name}",
         )
 
     def get_offline_onnx_model_bundle(self) -> OfflineONNXModelBundle:

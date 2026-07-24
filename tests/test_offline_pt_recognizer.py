@@ -88,7 +88,7 @@ async def test_pt_offline_recognizer_runs_standalone_spk_and_rebuilds_segments()
     result = await recognizer.recognize(OfflineRecognitionRequest(audio_path="demo.wav"))
 
     assert offline_model.calls[0]["audio_path"] == "demo.wav"
-    assert offline_model.calls[0]["kwargs"]["return_spk_res"] is False
+    assert offline_model.calls[0]["kwargs"]["return_spk_res"] is True
     assert speaker_recognizer.requests[0].audio_path == "demo.wav"
     assert [segment.text for segment in result.segments] == ["你", "好世界"]
     assert [segment.speaker for segment in result.segments] == ["spk-0", "spk-1"]
@@ -98,14 +98,14 @@ async def test_pt_offline_recognizer_runs_standalone_spk_and_rebuilds_segments()
 
 
 @pytest.mark.asyncio
-async def test_pt_offline_recognizer_skips_spk_and_returns_asr_text_when_no_timestamps():
+async def test_pt_offline_recognizer_uses_embedded_speaker_when_no_timestamps():
     offline_model = _FakeOfflineModel(
         [
             {
                 "text": "第一句第二句",
                 "sentence_info": [
                     {"sentence": "第一句", "start": 0, "end": 900, "spk": 0, "timestamp": []},
-                    {"sentence": "第二句", "start": 900, "end": 1800, "spk": 0, "timestamp": []},
+                    {"sentence": "第二句", "start": 900, "end": 1800, "spk": 1, "timestamp": []},
                 ]
             }
         ]
@@ -123,8 +123,8 @@ async def test_pt_offline_recognizer_skips_spk_and_returns_asr_text_when_no_time
     result = await recognizer.recognize(OfflineRecognitionRequest(audio_path="demo.wav"))
 
     assert speaker_recognizer.requests == []
-    assert [segment.text for segment in result.segments] == ["第一句", "第二句"]
-    assert result.full_text == "第一句第二句"
+    assert [segment.speaker for segment in result.segments] == [0, 1]
+    assert result.full_text == "[说话人 0] 第一句\n[说话人 1] 第二句"
     assert "speaker_result" not in result.metadata
 
 
@@ -159,14 +159,14 @@ async def test_pt_offline_recognizer_fails_when_required_speaker_result_is_unusa
 
 
 @pytest.mark.asyncio
-async def test_pt_offline_recognizer_skips_standalone_spk_when_disabled_by_config():
+async def test_pt_offline_recognizer_keeps_embedded_speaker_when_secondary_verification_disabled():
     offline_model = _FakeOfflineModel(
         [
             {
                 "text": "第一句第二句",
                 "sentence_info": [
                     {"sentence": "第一句", "start": 0, "end": 900, "spk": 0, "timestamp": []},
-                    {"sentence": "第二句", "start": 900, "end": 1800, "spk": 0, "timestamp": []},
+                    {"sentence": "第二句", "start": 900, "end": 1800, "spk": 1, "timestamp": []},
                 ]
             }
         ]
@@ -190,9 +190,8 @@ async def test_pt_offline_recognizer_skips_standalone_spk_when_disabled_by_confi
     result = await recognizer.recognize(OfflineRecognitionRequest(audio_path="demo.wav"))
 
     assert speaker_recognizer.requests == []
-    assert [segment.text for segment in result.segments] == ["第一句", "第二句"]
-    assert result.full_text == "第一句第二句"
-    assert "speaker_result" not in result.metadata
+    assert [segment.speaker for segment in result.segments] == [0, 1]
+    assert result.full_text == "[说话人 0] 第一句\n[说话人 1] 第二句"
 
 
 def test_pt_speaker_merge_splits_timestamp_tokens_at_speaker_boundary():

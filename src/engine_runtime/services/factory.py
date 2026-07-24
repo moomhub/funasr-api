@@ -67,11 +67,26 @@ class RuntimeServiceFactory:
         }
 
     def _enabled_services(self) -> Iterable[PreloadableService]:
-        for key in enabled_service_keys(self.manager.enabled_modes):
+        for key in enabled_service_keys(
+            self.manager.enabled_modes,
+            offline_backend=self._offline_backend(),
+            offline_spk_verification_enabled=self._offline_spk_verification_enabled(),
+        ):
             yield self._service_for_key(key)
 
     def required_service_modes(self, mode: str) -> List[str]:
-        return required_service_modes(mode)
+        return required_service_modes(
+            mode,
+            offline_backend=self._offline_backend(),
+            offline_spk_verification_enabled=self._offline_spk_verification_enabled(),
+        )
+
+    def _offline_backend(self) -> str:
+        return str(self.manager.get_backend_for_mode("offline"))
+
+    def _offline_spk_verification_enabled(self) -> bool:
+        processing_config = getattr(self.manager, "processing_config", None)
+        return bool(getattr(processing_config, "offline_spk_verification_enabled", True))
 
     def _service_for_key(self, key: str) -> PreloadableService:
         if key == "offline_asr":
